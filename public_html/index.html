@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="BizBox - Ready-made business solutions in multiple languages">
+  <title>BizBox - Готовые бизнесы | Ready-Made Businesses</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container">
+      <div class="logo">
+        <span class="logo-icon">📦</span>
+        <span class="logo-text">BizBox</span>
+      </div>
+      <div class="nav-menu">
+        <a href="#products" data-i18n="nav_products" class="nav-link">Готовые бизнесы</a>
+        <a href="#cases" data-i18n="nav_cases" class="nav-link">Кейсы</a>
+        <div class="language-selector">
+          <select id="lang-select" onchange="changeLang(this.value)" class="lang-dropdown">
+            <option value="ru">🇷🇺 РУ</option>
+            <option value="uk">🇺🇦 УК</option>
+            <option value="en">🇺🇸 EN</option>
+            <option value="es">🇪🇸 ES</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1 class="hero-title" data-i18n="hero_title">Запустите интернет-магазин за 7 дней</h1>
+        <p class="hero-subtitle" data-i18n="hero_subtitle">От первого заказа до 150k/месяц за 6 месяцев</p>
+        <button class="btn btn-primary btn-lg" onclick="openChat()" data-i18n="btn_start">Начать консультацию</button>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-number">200+</div>
+            <div class="stat-label" data-i18n="stat_clients">Клиентов</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number">$50M+</div>
+            <div class="stat-label" data-i18n="stat_revenue">Выручки</div>
+          </div>
+          <div class="stat">
+            <div class="stat-number">85%</div>
+            <div class="stat-label" data-i18n="stat_satisfaction">Удовлетворения</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Products Section -->
+  <section id="products" class="products">
+    <div class="container">
+      <h2 class="section-title" data-i18n="section_products">Готовые бизнесы</h2>
+      <div class="products-grid" id="products-grid">
+        <div class="loading">Загрузка...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cases Section -->
+  <section id="cases" class="cases">
+    <div class="container">
+      <h2 class="section-title" data-i18n="section_cases">Кейсы клиентов</h2>
+      <div class="cases-grid" id="cases-grid">
+        <div class="loading">Загрузка...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="features">
+    <div class="container">
+      <h2 class="section-title" data-i18n="section_why">Почему BizBox?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3 data-i18n="feature_fast">Быстрый запуск</h3>
+          <p data-i18n="feature_fast_desc">За 7 дней готовый бизнес</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3 data-i18n="feature_ai">AI Консультация</h3>
+          <p data-i18n="feature_ai_desc">Персональный советник</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌍</div>
+          <h3 data-i18n="feature_multi">Мультиязычность</h3>
+          <p data-i18n="feature_multi_desc">4 языка + поддержка</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💰</div>
+          <h3 data-i18n="feature_profit">Доход с первого дня</h3>
+          <p data-i18n="feature_profit_desc">ROI 300-500%</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta">
+    <div class="container">
+      <h2 data-i18n="cta_title">Готовы начать?</h2>
+      <p data-i18n="cta_subtitle">Получите персональную консультацию от AI Советника за 2 минуты</p>
+      <button class="btn btn-primary btn-lg" onclick="openChat()" data-i18n="btn_consult">Консультация</button>
+    </div>
+  </section>
+
+  <!-- Chat Modal -->
+  <div id="chat-modal" class="modal" style="display:none">
+    <div class="modal-overlay" onclick="closeChat()"></div>
+    <div class="modal-content chat-modal">
+      <div class="modal-header">
+        <h3 data-i18n="chat_title">AI Советник BizBox</h3>
+        <button class="close-btn" onclick="closeChat()">&times;</button>
+      </div>
+      <div id="chat-box" class="chat-box"></div>
+      <div class="chat-input-area">
+        <input
+          type="text"
+          id="chat-input"
+          class="chat-input"
+          placeholder="Напишите сообщение..."
+          onkeypress="if(event.key==='Enter') sendMessage()"
+        >
+        <button class="btn btn-sm btn-primary" onclick="sendMessage()">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h4>BizBox</h4>
+          <p data-i18n="footer_desc">Платформа готовых бизнесов с поддержкой AI</p>
+        </div>
+        <div class="footer-section">
+          <h4 data-i18n="footer_links">Ссылки</h4>
+          <ul>
+            <li><a href="#products">Продукты</a></li>
+            <li><a href="#cases">Кейсы</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h4 data-i18n="footer_contact">Контакты</h4>
+          <p>Email: info@bizbox.io</p>
+          <p>Phone: +1 (800) BIZBOX-1</p>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p data-i18n="footer_copyright">&copy; 2024 BizBox. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/i18n.js"></script>
+  <script src="/js/main.js"></script>
+  <script src="/js/chat.js"></script>
+</body>
+</html>
