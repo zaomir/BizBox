@@ -7,6 +7,14 @@ const {
   sendWelcomeEmail,
   sendLeadQualificationEmail
 } = require('../services/emailService');
+const {
+  saveConversation,
+  getConversation,
+  getLeadConversations
+} = require('../services/conversationService');
+const {
+  generateLeadProfile
+} = require('../services/leadScoringEngine');
 
 // Session storage (in production, use Redis or DB)
 const sessions = new Map();
@@ -178,5 +186,109 @@ router.delete('/session/:sessionId', (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/**
+ * POST /api/v1/chat/analyze
+ * Advanced conversation analysis with lead scoring
+ */
+router.post('/analyze', async (req, res) => {
+  try {
+    const { sessionId, email, name } = req.body;
+    const { db } = require('../index');
+
+    const session = sessions.get(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Generate comprehensive lead profile
+    const leadProfile = await generateLeadProfile(
+      session.history,
+      email,
+      name,
+      session.language
+    );
+
+    // Save conversation to database
+    await saveConversation(db, sessionId, email, session.history, {
+      qualityScore: leadProfile.qualityScore,
+      durationSeconds: Math.floor((Date.now() - session.createdAt) / 1000),
+      recommendedProduct: leadProfile.recommendedProduct,
+      readinessScore: leadProfile.readinessScore
+    });
+
+    res.json({
+      success: true,
+      leadProfile,
+      recommendations: {
+        product: leadProfile.recommendedProduct,
+        confidence: leadProfile.productConfidence,
+        painPoints: leadProfile.painPoints,
+        nextSteps: generateNextSteps(leadProfile)
+      }
+    });
+  } catch (err) {
+    console.error('❌ Analyze Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/v1/chat/history/:email
+ * Get all conversations for a lead
+ */
+router.get('/history/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { db } = require('../index');
+
+    const conversations = await getLeadConversations(db, email);
+
+    res.json({
+      success: true,
+      count: conversations.length,
+      conversations: conversations.map(c => ({
+        sessionId: c.session_id,
+        messageCount: c.message_count,
+        qualityScore: c.quality_score,
+        duration: c.duration_seconds,
+        createdAt: c.created_at
+      }))
+    });
+  } catch (err) {
+    console.error('❌ History Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Helper function to generate next steps based on lead profile
+ */
+function generateNextSteps(leadProfile) {
+  const steps = [];
+
+  if (leadProfile.readinessScore > 75) {
+    steps.push('Schedule demo call');
+    steps.push('Send product details');
+  }
+
+  if (leadProfile.readinessScore > 50 && leadProfile.readinessScore <= 75) {
+    steps.push('Send case studies');
+    steps.push('Provide pricing info');
+    steps.push('Follow up in 3 days');
+  }
+
+  if (leadProfile.readinessScore <= 50) {
+    steps.push('Educational materials');
+    steps.push('Schedule follow-up');
+    steps.push('Nurture campaign');
+  }
+
+  if (leadProfile.painPoints.length > 0) {
+    steps.push(`Address: ${leadProfile.painPoints[0]}`);
+  }
+
+  return steps;
+}
 
 module.exports = router;

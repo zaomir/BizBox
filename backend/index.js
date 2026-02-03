@@ -10,6 +10,7 @@ const path = require('path');
 // Middleware
 const { sanitizeInput, validatePagination } = require('./middleware/validation');
 const { rateLimits } = require('./middleware/rateLimit');
+const { scheduleBatchJobs } = require('./services/batchJobsService');
 
 const app = express();
 
@@ -74,7 +75,8 @@ app.get('/api/v1/info', (req, res) => {
       checkout: '/api/v1/checkout',
       leads: '/api/v1/leads',
       dashboard: '/api/v1/dashboard',
-      admin: '/api/v1/admin'
+      admin: '/api/v1/admin',
+      analytics: '/api/v1/analytics'
     }
   });
 });
@@ -91,6 +93,8 @@ app.use('/api/v1/cases', require('./routes/cases'));
 app.use('/api/v1/checkout', require('./routes/checkout'));
 app.use('/api/v1/leads', require('./routes/leads'));
 app.use('/api/v1/dashboard', require('./routes/dashboard'));
+app.use('/api/v1/analytics', require('./routes/analytics'));
+app.use('/api/v1/jobs', require('./routes/jobs'));
 app.use('/api/v1/admin', require('./routes/admin'));
 
 // 404 Handler
@@ -129,6 +133,13 @@ async function start() {
       console.warn('⚠️  Email service not available:', err.message);
     }
 
+    // Initialize batch jobs scheduler
+    try {
+      scheduleBatchJobs(db);
+    } catch (err) {
+      console.warn('⚠️  Batch jobs scheduler not initialized:', err.message);
+    }
+
     const PORT = process.env.PORT || 3000;
     const server = app.listen(PORT, () => {
       console.log(`
@@ -144,11 +155,13 @@ async function start() {
 
 📚 API Endpoints:
   • /api/v1/info - API info
-  • /api/v1/chat - AI Chat
-  • /api/v1/products - Products
-  • /api/v1/cases - Cases
-  • /api/v1/checkout - Payments
+  • /api/v1/chat - AI Chat & Analysis
+  • /api/v1/products - Products Catalog
+  • /api/v1/cases - Case Studies
+  • /api/v1/checkout - Stripe Payments
   • /api/v1/leads - Lead Management
+  • /api/v1/dashboard - Customer Dashboard
+  • /api/v1/analytics - Advanced Analytics
   • /api/v1/admin - Admin Panel
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
       `);
