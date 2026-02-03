@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { aiChat, analyzeConversation } = require('../services/aiAdvisor');
+const { validateChatMessage } = require('../middleware/validation');
+const {
+  sendWelcomeEmail,
+  sendLeadQualificationEmail
+} = require('../services/emailService');
 
 // Session storage (in production, use Redis or DB)
 const sessions = new Map();
@@ -10,13 +15,9 @@ const sessions = new Map();
  * POST /api/v1/chat/message
  * Send message and get AI response
  */
-router.post('/message', async (req, res) => {
+router.post('/message', validateChatMessage, async (req, res) => {
   try {
     const { message, sessionId, language = 'ru' } = req.body;
-
-    if (!message || message.trim().length === 0) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
 
     // Create or retrieve session
     let session = sessions.get(sessionId);
@@ -96,7 +97,7 @@ router.post('/qualify', async (req, res) => {
       const productMap = { cosmetics: 1, healthcare: 2, fintech: 3 };
       const recommendedProductId = productMap[analysis.recommended_product] || null;
 
-      await connection.query(query, [
+      const result = await connection.query(query, [
         email,
         name,
         phone,
@@ -112,9 +113,24 @@ router.post('/qualify', async (req, res) => {
 
       connection.release();
 
+      // Send welcome email to lead
+      await sendWelcomeEmail(email, name, session.language);
+
+      // Send notification to admin
+      const leadData = {
+        id: result[0].insertId,
+        email,
+        name,
+        phone,
+        country,
+        language: session.language
+      };
+      await sendLeadQualificationEmail(leadData, analysis);
+
       res.json({
         success: true,
         leadCreated: true,
+        leadId: result[0].insertId,
         analysis
       });
     } catch (err) {

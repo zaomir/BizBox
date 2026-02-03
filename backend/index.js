@@ -7,20 +7,29 @@ const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
 
+// Middleware
+const { sanitizeInput, validatePagination } = require('./middleware/validation');
+const { rateLimits } = require('./middleware/rateLimit');
+
 const app = express();
 
 // Security Middleware
 app.use(helmet());
 app.use(cors());
 app.use(morgan('combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(sanitizeInput);
+app.use(validatePagination);
 
 // Logging
 const logsDir = path.join(__dirname, '../logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
+
+// Create log file stream
+const logFile = fs.createWriteStream(path.join(logsDir, 'api.log'), { flags: 'a' });
 
 // Database Connection Pool
 let db;
@@ -44,10 +53,36 @@ async function initDB() {
   }
 }
 
-// Routes
+// Health check and info endpoints
 app.get('/health', (req, res) => {
-  res.json({ ok: true, timestamp: new Date() });
+  res.json({
+    ok: true,
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV
+  });
 });
+
+app.get('/api/v1/info', (req, res) => {
+  res.json({
+    name: 'BizBox API',
+    version: '1.0.0',
+    description: 'Ready-made business platform with AI advisor',
+    endpoints: {
+      chat: '/api/v1/chat',
+      products: '/api/v1/products',
+      cases: '/api/v1/cases',
+      checkout: '/api/v1/checkout',
+      leads: '/api/v1/leads',
+      dashboard: '/api/v1/dashboard',
+      admin: '/api/v1/admin'
+    }
+  });
+});
+
+// Apply rate limiting to specific routes
+app.use('/api/v1/chat', rateLimits.chat);
+app.use('/api/v1/leads', rateLimits.leads);
+app.use('/api/v1/checkout', rateLimits.checkout);
 
 // API Routes
 app.use('/api/v1/chat', require('./routes/chat'));
@@ -55,16 +90,26 @@ app.use('/api/v1/products', require('./routes/products'));
 app.use('/api/v1/cases', require('./routes/cases'));
 app.use('/api/v1/checkout', require('./routes/checkout'));
 app.use('/api/v1/leads', require('./routes/leads'));
+app.use('/api/v1/dashboard', require('./routes/dashboard'));
+app.use('/api/v1/admin', require('./routes/admin'));
 
 // 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({
+    success: false,
+    error: 'Route not found',
+    path: req.path
+  });
 });
 
-// Error Handler
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err);
-  res.status(500).json({
+
+  logFile.write(`[${new Date().toISOString()}] ERROR: ${err.message}\n`);
+
+  res.status(err.status || 500).json({
+    success: false,
     error: process.env.NODE_ENV === 'production'
       ? 'Internal Server Error'
       : err.message
@@ -73,19 +118,56 @@ app.use((err, req, res, next) => {
 
 // Initialize and Start
 async function start() {
-  await initDB();
+  try {
+    await initDB();
 
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`🚀 BizBox API Server running on port ${PORT}`);
-    console.log(`📝 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🌍 App URL: ${process.env.APP_URL}`);
-  });
+    // Verify email service
+    try {
+      const { verifyConnection } = require('./services/emailService');
+      await verifyConnection();
+    } catch (err) {
+      console.warn('⚠️  Email service not available:', err.message);
+    }
+
+    const PORT = process.env.PORT || 3000;
+    const server = app.listen(PORT, () => {
+      console.log(`
+🚀 BizBox API Server Started
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 Port: ${PORT}
+📝 Environment: ${process.env.NODE_ENV}
+🌍 App URL: ${process.env.APP_URL}
+🔑 API Keys: Loaded from .env
+📊 Database: Connected
+✉️  Email Service: Ready
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 API Endpoints:
+  • /api/v1/info - API info
+  • /api/v1/chat - AI Chat
+  • /api/v1/products - Products
+  • /api/v1/cases - Cases
+  • /api/v1/checkout - Payments
+  • /api/v1/leads - Lead Management
+  • /api/v1/admin - Admin Panel
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      `);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM signal received: closing HTTP server');
+      server.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+      });
+    });
+  } catch (err) {
+    console.error('❌ Failed to start server:', err);
+    process.exit(1);
+  }
 }
 
-start().catch(err => {
-  console.error('❌ Failed to start server:', err);
-  process.exit(1);
-});
+start();
 
 module.exports = { app, db };
